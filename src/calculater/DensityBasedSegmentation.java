@@ -1,22 +1,29 @@
 package calculater;
 
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
+
+import utils.DBManager;
+
+import bean.MovieEvaluate;
 
 public class DensityBasedSegmentation {
 	private static final int MIN_LENGTH = 10;
 	private static final double INCRE_MIN = 0.25;
 
 	private ArrayList<Integer> cutPointList = new ArrayList<Integer>();
+	private ArrayList<Double> incrementMaxList = new ArrayList<Double>();
 	private ArrayList<String> wholeList;
 
 	public void DBS(List<String> itemList) {
 		int length = itemList.size();
 		ArrayList<Double> incrementList = new ArrayList<Double>();
 		for (int i = MIN_LENGTH; i <= length - MIN_LENGTH; i++) {
-			ArrayList<String> singleItem = new ArrayList<String>();
-			singleItem.add(itemList.get(i - 1));
-			incrementList.add(getCDI(itemList, singleItem));
+			incrementList.add(getCDI(itemList.subList(0, i - 2),
+					itemList.subList(i, length - 1)));
 		}
 		double incrementMax = 0;
 		int cutPoint = 0;
@@ -43,6 +50,7 @@ public class DensityBasedSegmentation {
 				}
 			}
 			cutPointList.add(cutPoint);
+			incrementMaxList.add(incrementMax);
 			DBS(lSeg);
 			DBS(rSeg);
 		}
@@ -88,8 +96,44 @@ public class DensityBasedSegmentation {
 		return start < end ? wholeList.subList(start, end) : null;
 	}
 
-	private double getCDI(List<String> itemSeg1, List<String> itemSeg2) {
-		return 0;
+	public double getCDI(List<String> itemSeg1, List<String> itemSeg2) {
+
+		double T = 0;
+		List<String> wholeList = new ArrayList<String>();
+		wholeList.addAll(itemSeg1);
+		wholeList.addAll(itemSeg2);
+		T = (getDensity(itemSeg1) + getDensity(itemSeg2)) / 2.0
+				- getDensity(wholeList);
+		return T;
+	}
+
+	private double getDensity(List<String> movieList) {
+		double density = 0;
+		int len = movieList.size();
+		int total = len * (len - 1) / 2;
+		double edgeCount = getEdgeCount(movieList);
+		density = edgeCount / total;
+		return density;
+	}
+	
+	private static final HashMap<String, Double> SIMILARITY_CACHE = new HashMap<String, Double>();
+
+	private double getEdgeCount(List<String> A) {
+		double numA = 0;
+		for (int i = 0; i < A.size(); i++) {
+			for (int j = i; j < A.size(); j++) {
+				Double sim = SIMILARITY_CACHE.get(A.get(i) + A.get(j));
+				if ( sim == null) {
+					sim = new MovieSimilarity().calculateSimilaritySimple(
+							A.get(i), A.get(j));
+					SIMILARITY_CACHE.put(A.get(i) + A.get(j), sim);
+				}
+				if (sim >= 0.2) {
+					numA++;
+				}
+			}
+		}
+		return numA;
 	}
 
 	public void setWholeList(ArrayList<String> wholeList) {
@@ -100,7 +144,33 @@ public class DensityBasedSegmentation {
 		return cutPointList;
 	}
 
+	public ArrayList<Double> getIncrementMaxList() {
+		return incrementMaxList;
+	}
+
 	public static void main(String[] args) {
+		ArrayList<MovieEvaluate> movieEvaluateList = DBManager
+				.getInstance()
+				.getUserBean(
+						"http://movie.douban.com/people/60648596/collect?start=")
+				.getMovieEvaluate();
+		List<String> itemList = new ArrayList<String>();
+		Collections.sort(movieEvaluateList, new Comparator<MovieEvaluate>() {
+
+			@Override
+			public int compare(MovieEvaluate o1, MovieEvaluate o2) {
+				int date1 = Integer.parseInt(o1.getRatingTime().replaceAll("-", ""));
+				int date2 = Integer.parseInt(o2.getRatingTime().replaceAll("-", ""));
+				return date1 - date2;
+			}
+		});
+		for (MovieEvaluate movieEvaluate : movieEvaluateList) {
+			itemList.add(movieEvaluate.getUrl());
+		}
+		DensityBasedSegmentation dbs = new DensityBasedSegmentation();
+		dbs.DBS(itemList);
+		ArrayList<Integer> cutPointList = dbs.getCutPointList();
+		ArrayList<Double> incrementMaxList = dbs.getIncrementMaxList();
 	}
 
 }

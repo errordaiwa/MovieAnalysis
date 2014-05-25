@@ -3,6 +3,7 @@ package calculater;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -21,6 +22,7 @@ public class MovieSimilarity {
 	public double similarityOfActorTemp;
 	public ThreadPoolExecutor threadPool = (ThreadPoolExecutor) Executors
 			.newFixedThreadPool(100);
+	private static HashMap<String, MovieBean> movieCache = new HashMap<String, MovieBean>();
 
 	public static void main(String[] args) {
 		MovieSimilarity m = new MovieSimilarity();
@@ -84,15 +86,37 @@ public class MovieSimilarity {
 		return similarity;
 	}
 	
+	private static final MovieBean fakeMovie = new MovieBean();
 	public double calculateSimilaritySimple(String movieAUrl, String movieBUrl) {
 		if (movieAUrl.equals(movieBUrl))
 			return 1.93;
-		MovieBean movieA = dbManger.getMovieInfo(movieAUrl);
-		MovieBean movieB = dbManger.getMovieInfo(movieBUrl);
-		if (movieA == null)
-			movieA = crawlMovie(movieAUrl);
-		if (movieB == null)
-			movieB = crawlMovie(movieBUrl);
+
+		MovieBean movieA = movieCache.get(movieAUrl);
+		if (movieA == null) {
+			movieA = dbManger.getMovieInfo(movieAUrl);
+			if (movieA == null) {
+				movieCache.put(movieAUrl, fakeMovie);
+				return 0;
+			}
+			movieCache.put(movieAUrl, movieA);
+		} else if (movieA == fakeMovie) {
+			return 0;
+		}
+		MovieBean movieB = movieCache.get(movieBUrl);
+		if (movieB == null) {
+			movieB = dbManger.getMovieInfo(movieBUrl);
+			if (movieB == null) {
+				movieCache.put(movieBUrl, fakeMovie);
+				return 0;
+			}
+			movieCache.put(movieBUrl, movieB);
+		} else if (movieB == fakeMovie) {
+			return 0;
+		}
+//		if (movieA == null)
+//			movieA = crawlMovie(movieAUrl);
+//		if (movieB == null)
+//			movieB = crawlMovie(movieBUrl);
 		if (movieA == null || movieB == null)
 			return 0;
 		double similarityOfType = getSimilarityOfStringList(movieA.getType(),
