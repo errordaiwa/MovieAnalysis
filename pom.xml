@@ -5,7 +5,7 @@
 	<groupId>movieanalysis</groupId>
 	<artifactId>com.movieanalysis</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
-	<packaging>pom</packaging>
+	<packaging>jar</packaging>
 
 	<build>
 		<sourceDirectory>src</sourceDirectory>
@@ -33,6 +33,11 @@
 			<groupId>org.apache.poi</groupId>
 			<artifactId>poi</artifactId>
 			<version>3.10-beta1</version>
+		</dependency>
+		<dependency>
+			<groupId>redis.clients</groupId>
+			<artifactId>jedis</artifactId>
+			<version>2.2.1</version>
 		</dependency>
 	</dependencies>
 </project>

@@ -28,13 +28,16 @@ public class MovieSimilarity {
 				"http://movie.douban.com/subject/1759386/",
 				"http://movie.douban.com/subject/2334904/"));
 	}
+	
+	public void process() {
+		
+	}
 
 	public double calculateSimilarity(String movieAUrl, String movieBUrl) {
 
 		if (movieAUrl.equals(movieBUrl))
 			return 1;
 		MovieBean movieA = dbManger.getMovieInfo(movieAUrl);
-		// System.out.println("00");
 		MovieBean movieB = dbManger.getMovieInfo(movieBUrl);
 		if (movieA == null)
 			movieA = crawlMovie(movieAUrl);
@@ -51,16 +54,12 @@ public class MovieSimilarity {
 		}
 		double similarityOfType = getSimilarityOfStringList(movieA.getType(),
 				movieB.getType());
-		// System.out.println("1");
 		double similarityOfAward = getSimilarityOfAward(movieA.isHasAward(),
 				movieB.isHasAward());
-		// System.out.println("2");
 		double similarityOfLoc = getSimilarityOfStringList(
 				changeLocalToList(movieA.getLocal()),
 				changeLocalToList(movieA.getLocal()));
-		// System.out.println("3");
 		double countOfDirector = getSimilarityOfPeople(movieA, movieB, false);
-		// System.out.println("4");
 		double countOfActor = getSimilarityOfPeople(movieA, movieB, true);
 		threadPool.shutdown();
 		try {
@@ -71,12 +70,9 @@ public class MovieSimilarity {
 		double similarityOfDirector = similarityOfDirectorTemp
 				/ countOfDirector;
 		double similarityOfActor = similarityOfActorTemp / countOfActor;
-		// System.out.println("5");
 		double similarityOfTag = getSimilarityOfStringList(movieA.getTag(),
 				movieB.getTag());
-		// System.out.println("6");
 		double similarityOfScore = getSimilarityOfScore(movieA, movieB);
-		// System.out.println("7");
 		// double similarity = (similarityOfUpTime + 2*similarityOfType
 		// + similarityOfAward +2*similarityOfLoc + 1.5*similarityOfDirector
 		// + 1.5*similarityOfActor + similarityOfTag + 0.5*similarityOfScore) /
@@ -85,6 +81,30 @@ public class MovieSimilarity {
 				+ similarityOfAward + 3 * similarityOfLoc
 				+ similarityOfDirector + similarityOfActor + similarityOfTag + similarityOfScore) / 12;// todo
 																										// change权重
+		return similarity;
+	}
+	
+	public double calculateSimilaritySimple(String movieAUrl, String movieBUrl) {
+		if (movieAUrl.equals(movieBUrl))
+			return 1.93;
+		MovieBean movieA = dbManger.getMovieInfo(movieAUrl);
+		MovieBean movieB = dbManger.getMovieInfo(movieBUrl);
+		if (movieA == null)
+			movieA = crawlMovie(movieAUrl);
+		if (movieB == null)
+			movieB = crawlMovie(movieBUrl);
+		if (movieA == null || movieB == null)
+			return 0;
+		double similarityOfType = getSimilarityOfStringList(movieA.getType(),
+				movieB.getType());
+		double similarityOfTag = getSimilarityOfStringList(movieA.getTag(),
+				movieB.getTag());
+		double similarityOfDirector = getSimpleSimilarityOfPeople(movieA,
+				movieB, false);
+		double similarityOfActor = getSimpleSimilarityOfPeople(movieA, movieB,
+				true);
+		double similarity = similarityOfActor + 0.75 * similarityOfType + 0.17
+				* similarityOfDirector + 0.1 * similarityOfTag;
 		return similarity;
 	}
 
@@ -161,12 +181,17 @@ public class MovieSimilarity {
 		try {
 			ArrayList<String> peopleListA = getPeopleList(movieA, isActor);
 			ArrayList<String> peopleListB = getPeopleList(movieB, isActor);
-			for (String peopleUrlA : peopleListA) {
-				for (String peopleUrlB : peopleListB) {
-					threadPool.execute(this.new PeopleSimilarityThread(
-							peopleUrlA, peopleUrlB, isActor));
-				}
-			}
+			return getSimilarityOfStringList(peopleListA, peopleListB);
+		} catch (Exception e) {
+			return 0;
+		}
+	}
+	
+	private double getSimpleSimilarityOfPeople(MovieBean movieA, MovieBean movieB,
+			boolean isActor) {
+		try {
+			ArrayList<String> peopleListA = getPeopleList(movieA, isActor);
+			ArrayList<String> peopleListB = getPeopleList(movieB, isActor);
 			return (peopleListA.size() * peopleListB.size());
 		} catch (Exception e) {
 			return 0;
